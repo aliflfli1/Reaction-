@@ -38,7 +38,6 @@ function saveChannels(channels) {
 function addChannel(channelId, addedBy) {
     const channels = loadChannels();
     
-    // چک کردن تکراری نبودن
     if (channels.some(ch => ch.id === channelId)) {
         return { success: false, message: "❌ این کانال قبلاً اضافه شده است!" };
     }
@@ -56,7 +55,6 @@ function addChannel(channelId, addedBy) {
     return { success: false, message: "❌ خطا در ذخیره کانال" };
 }
 
-// حذف کانال
 function removeChannel(channelId) {
     let channels = loadChannels();
     const existed = channels.some(ch => ch.id === channelId);
@@ -72,7 +70,6 @@ function removeChannel(channelId) {
     return { success: false, message: "❌ خطا در حذف کانال" };
 }
 
-// لیست کانال‌ها
 function listChannels() {
     const channels = loadChannels();
     if (channels.length === 0) {
@@ -88,7 +85,6 @@ function listChannels() {
     return message;
 }
 
-// فعال/غیرفعال کردن کانال
 function toggleChannel(channelId) {
     const channels = loadChannels();
     const channel = channels.find(ch => ch.id === channelId);
@@ -104,20 +100,23 @@ function toggleChannel(channelId) {
     return { success: true, message: `✅ کانال ${channelId} ${status} شد!` };
 }
 
+async function isChannelAllowed(chatId) {
+    const channels = loadChannels();
+    const channel = channels.find(ch => ch.id === chatId.toString());
+    return channel && channel.enabled;
+}
+
 // ========== ۳. تابع واکنش تصادفی ==========
 async function reactToPost(ctx, channelId) {
     try {
-        // اعمال شانس تصادفی
         const random = Math.floor(Math.random() * 100) + 1;
         if (random > REACTION_CHANCE) {
             console.log(`🎲 شانس ${REACTION_CHANCE}% - واکنش زده نشد (عدد آمد: ${random})`);
             return;
         }
         
-        // انتخاب ایموجی تصادفی
         const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
         
-        // زدن واکنش
         await ctx.api.setMessageReaction(
             ctx.msg.chat.id, 
             ctx.msg.message_id, {
@@ -131,18 +130,10 @@ async function reactToPost(ctx, channelId) {
     }
 }
 
-// ========== ۴. بررسی مجاز بودن کانال ==========
-async function isChannelAllowed(chatId) {
-    const channels = loadChannels();
-    const channel = channels.find(ch => ch.id === chatId.toString());
-    return channel && channel.enabled;
-}
-
-// ========== ۵. گوش دادن به پست‌های جدید ==========
+// ========== ۴. مدیریت پیام‌های کانال ==========
 bot.on("channel_post", async (ctx) => {
     const chatId = ctx.chat.id.toString();
     
-    // بررسی مجاز بودن کانال
     if (!await isChannelAllowed(chatId)) {
         console.log(`⏭️ کانال ${chatId} در لیست نیست یا غیرفعال است، نادیده گرفته شد`);
         return;
@@ -152,7 +143,6 @@ bot.on("channel_post", async (ctx) => {
     await reactToPost(ctx, chatId);
 });
 
-// پیام‌های معمولی در کانال‌ها
 bot.on("message", async (ctx) => {
     if (ctx.chat?.type === "channel") {
         const chatId = ctx.chat.id.toString();
@@ -162,8 +152,7 @@ bot.on("message", async (ctx) => {
     }
 });
 
-// ========== ۶. دستورات مدیریت کانال ==========
-// اضافه کردن کانال جدید
+// ========== ۵. دستورات ==========
 bot.command("addchannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
@@ -180,10 +169,8 @@ bot.command("addchannel", async (ctx) => {
     
     const channelId = args[1];
     const result = addChannel(channelId, ctx.from.id);
-    
     await ctx.reply(result.message);
     
-    // پیشنهاد تست کانال
     if (result.success) {
         await ctx.reply(
             "✅ کانال اضافه شد!\n\n" +
@@ -194,7 +181,6 @@ bot.command("addchannel", async (ctx) => {
     }
 });
 
-// حذف کانال
 bot.command("removechannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
@@ -207,13 +193,11 @@ bot.command("removechannel", async (ctx) => {
     await ctx.reply(result.message);
 });
 
-// لیست کانال‌ها
 bot.command("listchannels", async (ctx) => {
     const list = listChannels();
     await ctx.reply(list, { parse_mode: "Markdown" });
 });
 
-// فعال/غیرفعال کردن کانال
 bot.command("togglechannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
@@ -226,7 +210,7 @@ bot.command("togglechannel", async (ctx) => {
     await ctx.reply(result.message);
 });
 
-// تنظیم شانس واکنش (فقط برای ادمین ربات)
+let currentChance = REACTION_CHANCE;
 bot.command("setchance", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
@@ -240,12 +224,10 @@ bot.command("setchance", async (ctx) => {
         return;
     }
     
-    // اینجا فقط برای این سشن تغییر می‌کنه
-    // برای ذخیره دائم باید از متغیر محیطی استفاده کنی
-    await ctx.reply(`🎲 شانس واکنش به ${chance}% تغییر کرد! (تا ریاستارت بعدی)`);
+    currentChance = chance;
+    await ctx.reply(`🎲 شانس واکنش به ${chance}% تغییر کرد!`);
 });
 
-// دستور استارت
 bot.command("start", async (ctx) => {
     await ctx.reply(
         `🤖 **ربات واکنش‌زننده حرفه‌ای**\n\n` +
@@ -256,14 +238,13 @@ bot.command("start", async (ctx) => {
         `• /togglechannel @username - فعال/غیرفعال کردن\n\n` +
         `⚙️ **تنظیمات:**\n` +
         `• ایموجی‌ها: ${EMOJIS.join(", ")}\n` +
-        `• شانس واکنش: ${REACTION_CHANCE}%\n` +
+        `• شانس واکنش: ${currentChance}%\n` +
         `• /setchance عدد - تغییر شانس واکنش\n\n` +
         `⚠️ **نکته مهم:** ربات باید در کانال‌ها **ادمین** باشد!`,
         { parse_mode: "Markdown" }
     );
 });
 
-// راهنما
 bot.command("help", async (ctx) => {
     await ctx.reply(
         "📚 **راهنمای کامل ربات:**\n\n" +
@@ -281,20 +262,27 @@ bot.command("help", async (ctx) => {
     );
 });
 
-// آمار ساده (در حافظه موقت)
-let reactionStats = { total: 0, lastReactions: [] };
+let reactionStats = { total: 0 };
 bot.command("stats", async (ctx) => {
     await ctx.reply(
         `📊 **آمار ربات:**\n\n` +
         `• کانال‌های فعال: ${loadChannels().length}\n` +
-        `• کل واکنش‌ها: ${reactionStats.total}\n` +
         `• ایموجی‌های فعال: ${EMOJIS.length} عدد\n` +
-        `• شانس فعلی: ${REACTION_CHANCE}%\n` +
+        `• شانس فعلی: ${currentChance}%\n` +
         `• وضعیت: 🟢 آنلاین`
     );
 });
 
-// ========== ۷. اجرای ربات ==========
-bot.start();
-console.log(`🚀 ربات ${bot.botInfo.username} با موفقیت اجرا شد!`);
-console.log(`📺 آماده مدیریت کانال‌ها...`);
+// ========== ۶. اجرای ربات (بدون خطا) ==========
+async function main() {
+    try {
+        // ابتدا ربات رو راه‌اندازی کن
+        bot.start();
+        console.log(`🚀 ربات با موفقیت اجرا شد!`);
+        console.log(`📺 آماده مدیریت کانال‌ها...`);
+    } catch (error) {
+        console.error("خطا در اجرای ربات:", error);
+    }
+}
+
+main();
