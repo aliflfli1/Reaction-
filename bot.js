@@ -1,30 +1,26 @@
 const { Bot } = require("grammy");
 const fs = require("fs");
 
-// ========== ۱. تنظیمات اولیه ==========
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const EMOJIS = (process.env.EMOJIS || "👍,❤️,🔥,🥰,👏").split(",");
 const REACTION_CHANCE = parseInt(process.env.REACTION_CHANCE || "70");
 
 if (!BOT_TOKEN) {
-    console.error("❌ BOT_TOKEN پیدا نشد! متغیر محیطی را تنظیم کنید.");
+    console.error("❌ BOT_TOKEN پیدا نشد!");
     process.exit(1);
 }
 
 const bot = new Bot(BOT_TOKEN);
-
-// فایل ذخیره‌سازی کانال‌ها
 const CHANNELS_FILE = "channels.json";
 
-// ========== ۲. مدیریت کانال‌ها در فایل ==========
+// ========== مدیریت کانال‌ها ==========
 function loadChannels() {
     try {
         if (fs.existsSync(CHANNELS_FILE)) {
-            const data = fs.readFileSync(CHANNELS_FILE, "utf8");
-            return JSON.parse(data);
+            return JSON.parse(fs.readFileSync(CHANNELS_FILE, "utf8"));
         }
     } catch (error) {
-        console.error("خطا در بارگذاری کانال‌ها:", error);
+        console.error("خطا در بارگذاری:", error);
     }
     return [];
 }
@@ -34,74 +30,47 @@ function saveChannels(channels) {
         fs.writeFileSync(CHANNELS_FILE, JSON.stringify(channels, null, 2));
         return true;
     } catch (error) {
-        console.error("خطا در ذخیره کانال‌ها:", error);
+        console.error("خطا در ذخیره:", error);
         return false;
     }
 }
 
 function addChannel(channelId, addedBy) {
     const channels = loadChannels();
-    
     if (channels.some(ch => ch.id === channelId)) {
-        return { success: false, message: "❌ این کانال قبلاً اضافه شده است!" };
+        return { success: false, message: "❌ این کانال قبلاً اضافه شده!" };
     }
-    
-    channels.push({
-        id: channelId,
-        addedBy: addedBy,
-        addedAt: new Date().toISOString(),
-        enabled: true
-    });
-    
-    if (saveChannels(channels)) {
-        return { success: true, message: `✅ کانال ${channelId} با موفقیت اضافه شد!` };
-    }
-    return { success: false, message: "❌ خطا در ذخیره کانال" };
+    channels.push({ id: channelId, addedBy, addedAt: new Date().toISOString(), enabled: true });
+    saveChannels(channels);
+    return { success: true, message: `✅ کانال ${channelId} اضافه شد!` };
 }
 
 function removeChannel(channelId) {
     let channels = loadChannels();
     const existed = channels.some(ch => ch.id === channelId);
-    
     channels = channels.filter(ch => ch.id !== channelId);
-    
-    if (saveChannels(channels)) {
-        return { 
-            success: true, 
-            message: existed ? `🗑️ کانال ${channelId} حذف شد!` : "⚠️ کانالی با این شناسه یافت نشد"
-        };
-    }
-    return { success: false, message: "❌ خطا در حذف کانال" };
+    saveChannels(channels);
+    return { success: true, message: existed ? `🗑️ کانال ${channelId} حذف شد!` : "⚠️ کانال یافت نشد" };
 }
 
 function listChannels() {
     const channels = loadChannels();
-    if (channels.length === 0) {
-        return "📭 هنوز هیچ کانالی اضافه نشده است.\nاز دستور /addchannel استفاده کنید.";
-    }
+    if (channels.length === 0) return "📭 هیچ کانالی اضافه نشده.\nاز /addchannel استفاده کن.";
     
-    let message = "📺 **لیست کانال‌های فعال:**\n\n";
-    channels.forEach((ch, index) => {
-        const status = ch.enabled ? "✅ فعال" : "⭕ غیرفعال";
-        message += `${index + 1}. \`${ch.id}\` - ${status}\n`;
+    let message = "📺 **لیست کانال‌ها:**\n\n";
+    channels.forEach((ch, i) => {
+        message += `${i+1}. \`${ch.id}\` - ${ch.enabled ? "✅ فعال" : "⭕ غیرفعال"}\n`;
     });
-    message += `\nمجموع: ${channels.length} کانال`;
     return message;
 }
 
 function toggleChannel(channelId) {
     const channels = loadChannels();
     const channel = channels.find(ch => ch.id === channelId);
-    
-    if (!channel) {
-        return { success: false, message: "❌ کانال یافت نشد!" };
-    }
-    
+    if (!channel) return { success: false, message: "❌ کانال یافت نشد!" };
     channel.enabled = !channel.enabled;
     saveChannels(channels);
-    
-    const status = channel.enabled ? "فعال" : "غیرفعال";
-    return { success: true, message: `✅ کانال ${channelId} ${status} شد!` };
+    return { success: true, message: `✅ کانال ${channelId} ${channel.enabled ? "فعال" : "غیرفعال"} شد!` };
 }
 
 async function isChannelAllowed(chatId) {
@@ -110,145 +79,115 @@ async function isChannelAllowed(chatId) {
     return channel && channel.enabled;
 }
 
-// ========== ۳. تابع واکنش تصادفی ==========
+// ========== تابع واکنش (اصلاح شده) ==========
 let currentChance = REACTION_CHANCE;
 
 async function reactToPost(ctx, channelId) {
     try {
         const random = Math.floor(Math.random() * 100) + 1;
         if (random > currentChance) {
-            console.log(`🎲 شانس ${currentChance}% - واکنش زده نشد (عدد آمد: ${random})`);
+            console.log(`🎲 واکنش زده نشد (شانس ${currentChance}%, آمد ${random})`);
             return;
         }
         
         const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
         
+        // ✅ فرمت صحیح ری اکت
         await ctx.api.setMessageReaction(
-            ctx.msg.chat.id, 
-            ctx.msg.message_id, 
+            ctx.chat.id,
+            ctx.msg.message_id,
             [{ type: "emoji", emoji: randomEmoji }]
         );
         
-        console.log(`✅ واکنش ${randomEmoji} به پست ${ctx.msg.message_id} در کانال ${channelId} زده شد`);
+        console.log(`✅ واکنش ${randomEmoji} به پست ${ctx.msg.message_id} در ${channelId} زده شد`);
     } catch (error) {
-        console.error(`❌ خطا در زدن واکنش: ${error.message}`);
+        console.error(`❌ خطا: ${error.message}`);
     }
 }
 
-// ========== ۴. مدیریت پیام‌های کانال ==========
+// ========== دریافت پست‌های کانال ==========
 bot.on("channel_post", async (ctx) => {
     const chatId = ctx.chat.id.toString();
+    console.log(`📢 پست جدید در کانال ${chatId} دریافت شد`);
     
     if (!await isChannelAllowed(chatId)) {
-        console.log(`⏭️ کانال ${chatId} در لیست نیست یا غیرفعال است، نادیده گرفته شد`);
+        console.log(`⏭️ کانال ${chatId} مجاز نیست یا غیرفعال است`);
         return;
     }
     
-    console.log(`📢 پست جدید در کانال ${chatId} شناسایی شد!`);
     await reactToPost(ctx, chatId);
 });
 
-// ========== ۵. دستورات ربات ==========
+// ========== دستورات ==========
 bot.command("start", async (ctx) => {
     await ctx.reply(
-        `🤖 **ربات واکنش‌زننده کانال**\n\n` +
-        `📺 **مدیریت کانال‌ها:**\n` +
-        `• /addchannel @username - اضافه کردن کانال\n` +
-        `• /removechannel @username - حذف کانال\n` +
-        `• /listchannels - مشاهده لیست کانال‌ها\n` +
-        `• /togglechannel @username - فعال/غیرفعال کردن\n\n` +
-        `⚙️ **تنظیمات:**\n` +
-        `• ایموجی‌ها: ${EMOJIS.join(", ")}\n` +
-        `• شانس واکنش: ${currentChance}%\n` +
-        `• /setchance عدد - تغییر شانس\n\n` +
-        `⚠️ **نکته:** ربات باید در کانال **ادمین** باشد!`,
-        { parse_mode: "Markdown" }
-    );
-});
-
-bot.command("help", async (ctx) => {
-    await ctx.reply(
-        "📚 **راهنما:**\n\n" +
-        "/addchannel - اضافه کردن کانال جدید\n" +
+        "🤖 **ربات واکنش‌زننده کانال**\n\n" +
+        "/addchannel - اضافه کردن کانال\n" +
         "/removechannel - حذف کانال\n" +
-        "/listchannels - نمایش همه کانال‌ها\n" +
+        "/listchannels - لیست کانال‌ها\n" +
         "/togglechannel - فعال/غیرفعال کردن\n" +
-        "/setchance - تغییر شانس واکنش (0-100)\n" +
-        "/stats - آمار ربات\n" +
-        "/start - راه‌اندازی مجدد"
+        "/setchance - تغییر شانس واکنش\n\n" +
+        `⚙️ وضعیت: ${EMOJIS.length} ایموجی | شانس ${currentChance}%`,
+        { parse_mode: "Markdown" }
     );
 });
 
 bot.command("addchannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
-        await ctx.reply(
-            "📝 **راهنما:**\n" +
-            "استفاده: `/addchannel @channel_username`\n\n" +
-            "یا با آیدی عددی: `/addchannel -1001234567890`\n\n" +
-            "⚠️ ربات باید ادمین کانال باشد!"
-        );
+        await ctx.reply("📝 استفاده: `/addchannel @channel` یا `/addchannel -1001234567890`");
         return;
     }
-    
-    const channelId = args[1];
-    const result = addChannel(channelId, ctx.from.id);
+    const result = addChannel(args[1], ctx.from.id);
     await ctx.reply(result.message);
+    
+    if (result.success) {
+        await ctx.reply("🔍 بعد از اضافه کردن، ربات رو دوباره استارت کن: /start\n⚠️ حتماً ربات ادمین کانال باشه!");
+    }
 });
 
 bot.command("removechannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
-        await ctx.reply("📝 استفاده: `/removechannel @channel_username`");
+        await ctx.reply("📝 استفاده: `/removechannel @channel`");
         return;
     }
-    
-    const channelId = args[1];
-    const result = removeChannel(channelId);
-    await ctx.reply(result.message);
+    await ctx.reply(removeChannel(args[1]).message);
 });
 
 bot.command("listchannels", async (ctx) => {
-    const list = listChannels();
-    await ctx.reply(list, { parse_mode: "Markdown" });
+    await ctx.reply(listChannels(), { parse_mode: "Markdown" });
 });
 
 bot.command("togglechannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
-        await ctx.reply("📝 استفاده: `/togglechannel @channel_username`");
+        await ctx.reply("📝 استفاده: `/togglechannel @channel`");
         return;
     }
-    
-    const channelId = args[1];
-    const result = toggleChannel(channelId);
-    await ctx.reply(result.message);
+    await ctx.reply(toggleChannel(args[1]).message);
 });
 
 bot.command("setchance", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
-        await ctx.reply("📝 استفاده: `/setchance 70` (عدد بین 0 تا 100)");
+        await ctx.reply("📝 استفاده: `/setchance 70` (0 تا 100)");
         return;
     }
-    
     const chance = parseInt(args[1]);
     if (isNaN(chance) || chance < 0 || chance > 100) {
-        await ctx.reply("❌ لطفاً یک عدد بین 0 تا 100 وارد کنید!");
+        await ctx.reply("❌ عدد بین 0 تا 100 وارد کن!");
         return;
     }
-    
     currentChance = chance;
     await ctx.reply(`🎲 شانس واکنش به ${chance}% تغییر کرد!`);
 });
 
 bot.command("stats", async (ctx) => {
     const channels = loadChannels();
-    const activeChannels = channels.filter(ch => ch.enabled).length;
-    
     await ctx.reply(
-        `📊 **آمار ربات:**\n\n` +
-        `• کانال‌های فعال: ${activeChannels} از ${channels.length}\n` +
+        `📊 **آمار:**\n\n` +
+        `• کانال‌ها: ${channels.filter(c => c.enabled).length} فعال از ${channels.length}\n` +
         `• ایموجی‌ها: ${EMOJIS.length} عدد\n` +
         `• شانس فعلی: ${currentChance}%\n` +
         `• وضعیت: 🟢 آنلاین`,
@@ -256,26 +195,21 @@ bot.command("stats", async (ctx) => {
     );
 });
 
-// ========== ۶. اجرای ربات ==========
+// ========== اجرا ==========
 async function main() {
     try {
-        // پاک کردن webhook
         await bot.api.deleteWebhook({ drop_pending_updates: true });
         console.log("✅ Webhook پاک شد");
         
-        // دریافت اطلاعات ربات
         const botInfo = await bot.api.getMe();
         console.log(`🤖 ربات: @${botInfo.username}`);
-        console.log(`🚀 ربات با موفقیت اجرا شد!`);
-        console.log(`📺 آماده مدیریت کانال‌ها...`);
+        console.log(`🚀 ربات اجرا شد!`);
         console.log(`😊 ایموجی‌ها: ${EMOJIS.join(", ")}`);
-        console.log(`🎲 شانس واکنش: ${currentChance}%`);
+        console.log(`🎲 شانس: ${currentChance}%`);
         
-        // شروع polling
         bot.start();
-        
     } catch (error) {
-        console.error("❌ خطا در اجرای ربات:", error);
+        console.error("❌ خطا:", error);
         process.exit(1);
     }
 }
