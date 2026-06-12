@@ -1,11 +1,15 @@
 const { Bot } = require("grammy");
-const { run } = require("@grammyjs/runner");
 const fs = require("fs");
 
 // ========== ۱. تنظیمات اولیه ==========
-const BOT_TOKEN = process.env.BOT_TOKEN || "توکن_ربات_خودت_اینجا";
+const BOT_TOKEN = process.env.BOT_TOKEN;
 const EMOJIS = (process.env.EMOJIS || "👍,❤️,🔥,🥰,👏").split(",");
 const REACTION_CHANCE = parseInt(process.env.REACTION_CHANCE || "70");
+
+if (!BOT_TOKEN) {
+    console.error("❌ BOT_TOKEN پیدا نشد! متغیر محیطی را تنظیم کنید.");
+    process.exit(1);
+}
 
 const bot = new Bot(BOT_TOKEN);
 
@@ -121,9 +125,8 @@ async function reactToPost(ctx, channelId) {
         
         await ctx.api.setMessageReaction(
             ctx.msg.chat.id, 
-            ctx.msg.message_id, {
-                reaction: [{ type: "emoji", emoji: randomEmoji }]
-            }
+            ctx.msg.message_id, 
+            [{ type: "emoji", emoji: randomEmoji }]
         );
         
         console.log(`✅ واکنش ${randomEmoji} به پست ${ctx.msg.message_id} در کانال ${channelId} زده شد`);
@@ -141,51 +144,38 @@ bot.on("channel_post", async (ctx) => {
         return;
     }
     
-    console.log(`📢 پست جدید در کانال مجاز ${chatId} شناسایی شد!`);
+    console.log(`📢 پست جدید در کانال ${chatId} شناسایی شد!`);
     await reactToPost(ctx, chatId);
-});
-
-bot.on("message", async (ctx) => {
-    if (ctx.chat?.type === "channel") {
-        const chatId = ctx.chat.id.toString();
-        if (await isChannelAllowed(chatId)) {
-            await reactToPost(ctx, chatId);
-        }
-    }
 });
 
 // ========== ۵. دستورات ربات ==========
 bot.command("start", async (ctx) => {
     await ctx.reply(
-        `🤖 **ربات واکنش‌زننده حرفه‌ای**\n\n` +
+        `🤖 **ربات واکنش‌زننده کانال**\n\n` +
         `📺 **مدیریت کانال‌ها:**\n` +
-        `• /addchannel @username - اضافه کردن کانال جدید\n` +
+        `• /addchannel @username - اضافه کردن کانال\n` +
         `• /removechannel @username - حذف کانال\n` +
         `• /listchannels - مشاهده لیست کانال‌ها\n` +
         `• /togglechannel @username - فعال/غیرفعال کردن\n\n` +
         `⚙️ **تنظیمات:**\n` +
         `• ایموجی‌ها: ${EMOJIS.join(", ")}\n` +
         `• شانس واکنش: ${currentChance}%\n` +
-        `• /setchance عدد - تغییر شانس واکنش\n\n` +
-        `⚠️ **نکته مهم:** ربات باید در کانال‌ها **ادمین** باشد!`,
+        `• /setchance عدد - تغییر شانس\n\n` +
+        `⚠️ **نکته:** ربات باید در کانال **ادمین** باشد!`,
         { parse_mode: "Markdown" }
     );
 });
 
 bot.command("help", async (ctx) => {
     await ctx.reply(
-        "📚 **راهنمای کامل ربات:**\n\n" +
-        "**مدیریت کانال‌ها:**\n" +
+        "📚 **راهنما:**\n\n" +
         "/addchannel - اضافه کردن کانال جدید\n" +
-        "/removechannel - حذف کانال از لیست\n" +
+        "/removechannel - حذف کانال\n" +
         "/listchannels - نمایش همه کانال‌ها\n" +
-        "/togglechannel - فعال/غیرفعال کردن موقت\n\n" +
-        "**تنظیمات:**\n" +
+        "/togglechannel - فعال/غیرفعال کردن\n" +
         "/setchance - تغییر شانس واکنش (0-100)\n" +
-        "/stats - آمار واکنش‌ها\n\n" +
-        "**سایر:**\n" +
-        "/start - راه‌اندازی مجدد ربات\n" +
-        "/help - نمایش این راهنما"
+        "/stats - آمار ربات\n" +
+        "/start - راه‌اندازی مجدد"
     );
 });
 
@@ -194,11 +184,9 @@ bot.command("addchannel", async (ctx) => {
     if (args.length < 2) {
         await ctx.reply(
             "📝 **راهنما:**\n" +
-            "برای اضافه کردن کانال از این فرمت استفاده کنید:\n" +
-            "`/addchannel @channel_username`\n\n" +
-            "یا با آیدی عددی:\n" +
-            "`/addchannel -1001234567890`\n\n" +
-            "⚠️ **نکته:** ربات باید ادمین کانال باشد!"
+            "استفاده: `/addchannel @channel_username`\n\n" +
+            "یا با آیدی عددی: `/addchannel -1001234567890`\n\n" +
+            "⚠️ ربات باید ادمین کانال باشد!"
         );
         return;
     }
@@ -206,21 +194,12 @@ bot.command("addchannel", async (ctx) => {
     const channelId = args[1];
     const result = addChannel(channelId, ctx.from.id);
     await ctx.reply(result.message);
-    
-    if (result.success) {
-        await ctx.reply(
-            "✅ کانال اضافه شد!\n\n" +
-            "🔍 برای تست، یک پیام در کانال بفرستید.\n" +
-            "📋 مشاهده لیست: /listchannels\n" +
-            "🗑️ حذف کانال: /removechannel"
-        );
-    }
 });
 
 bot.command("removechannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
-        await ctx.reply("📝 استفاده: `/removechannel @channel_username` یا `/removechannel -1001234567890`");
+        await ctx.reply("📝 استفاده: `/removechannel @channel_username`");
         return;
     }
     
@@ -270,46 +249,30 @@ bot.command("stats", async (ctx) => {
     await ctx.reply(
         `📊 **آمار ربات:**\n\n` +
         `• کانال‌های فعال: ${activeChannels} از ${channels.length}\n` +
-        `• ایموجی‌های فعال: ${EMOJIS.length} عدد\n` +
+        `• ایموجی‌ها: ${EMOJIS.length} عدد\n` +
         `• شانس فعلی: ${currentChance}%\n` +
-        `• وضعیت: 🟢 آنلاین\n` +
-        `• زمان اجرا: ${new Date().toLocaleString("fa-IR")}`,
+        `• وضعیت: 🟢 آنلاین`,
         { parse_mode: "Markdown" }
     );
 });
 
-// ========== ۶. اجرای اصلی ربات با runner ==========
+// ========== ۶. اجرای ربات ==========
 async function main() {
     try {
-        // پاک کردن webhook قبل از شروع polling
+        // پاک کردن webhook
         await bot.api.deleteWebhook({ drop_pending_updates: true });
-        console.log("✅ Webhook cleared");
+        console.log("✅ Webhook پاک شد");
         
-        // مقداردهی اولیه برای دسترسی به botInfo
-        await bot.init();
-        console.log(`🤖 ربات: @${bot.botInfo.username}`);
-        
-        // اجرا با runner برای پردازش همزمان و پایدار
-        const runner = run(bot);
+        // دریافت اطلاعات ربات
+        const botInfo = await bot.api.getMe();
+        console.log(`🤖 ربات: @${botInfo.username}`);
         console.log(`🚀 ربات با موفقیت اجرا شد!`);
         console.log(`📺 آماده مدیریت کانال‌ها...`);
         console.log(`😊 ایموجی‌ها: ${EMOJIS.join(", ")}`);
         console.log(`🎲 شانس واکنش: ${currentChance}%`);
         
-        // مدیریت خاموش شدن graceful
-        process.once("SIGINT", async () => {
-            console.log("\n🛑 در حال توقف ربات...");
-            await runner.stop();
-            console.log("✅ ربات متوقف شد");
-            process.exit(0);
-        });
-        
-        process.once("SIGTERM", async () => {
-            console.log("\n🛑 در حال توقف ربات...");
-            await runner.stop();
-            console.log("✅ ربات متوقف شد");
-            process.exit(0);
-        });
+        // شروع polling
+        bot.start();
         
     } catch (error) {
         console.error("❌ خطا در اجرای ربات:", error);
