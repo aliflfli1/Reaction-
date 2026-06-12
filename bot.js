@@ -1,4 +1,5 @@
 const { Bot } = require("grammy");
+const { run } = require("@grammyjs/runner");
 const fs = require("fs");
 
 // ========== ۱. تنظیمات اولیه ==========
@@ -34,7 +35,6 @@ function saveChannels(channels) {
     }
 }
 
-// اضافه کردن کانال جدید
 function addChannel(channelId, addedBy) {
     const channels = loadChannels();
     
@@ -107,11 +107,13 @@ async function isChannelAllowed(chatId) {
 }
 
 // ========== ۳. تابع واکنش تصادفی ==========
+let currentChance = REACTION_CHANCE;
+
 async function reactToPost(ctx, channelId) {
     try {
         const random = Math.floor(Math.random() * 100) + 1;
-        if (random > REACTION_CHANCE) {
-            console.log(`🎲 شانس ${REACTION_CHANCE}% - واکنش زده نشد (عدد آمد: ${random})`);
+        if (random > currentChance) {
+            console.log(`🎲 شانس ${currentChance}% - واکنش زده نشد (عدد آمد: ${random})`);
             return;
         }
         
@@ -152,7 +154,41 @@ bot.on("message", async (ctx) => {
     }
 });
 
-// ========== ۵. دستورات ==========
+// ========== ۵. دستورات ربات ==========
+bot.command("start", async (ctx) => {
+    await ctx.reply(
+        `🤖 **ربات واکنش‌زننده حرفه‌ای**\n\n` +
+        `📺 **مدیریت کانال‌ها:**\n` +
+        `• /addchannel @username - اضافه کردن کانال جدید\n` +
+        `• /removechannel @username - حذف کانال\n` +
+        `• /listchannels - مشاهده لیست کانال‌ها\n` +
+        `• /togglechannel @username - فعال/غیرفعال کردن\n\n` +
+        `⚙️ **تنظیمات:**\n` +
+        `• ایموجی‌ها: ${EMOJIS.join(", ")}\n` +
+        `• شانس واکنش: ${currentChance}%\n` +
+        `• /setchance عدد - تغییر شانس واکنش\n\n` +
+        `⚠️ **نکته مهم:** ربات باید در کانال‌ها **ادمین** باشد!`,
+        { parse_mode: "Markdown" }
+    );
+});
+
+bot.command("help", async (ctx) => {
+    await ctx.reply(
+        "📚 **راهنمای کامل ربات:**\n\n" +
+        "**مدیریت کانال‌ها:**\n" +
+        "/addchannel - اضافه کردن کانال جدید\n" +
+        "/removechannel - حذف کانال از لیست\n" +
+        "/listchannels - نمایش همه کانال‌ها\n" +
+        "/togglechannel - فعال/غیرفعال کردن موقت\n\n" +
+        "**تنظیمات:**\n" +
+        "/setchance - تغییر شانس واکنش (0-100)\n" +
+        "/stats - آمار واکنش‌ها\n\n" +
+        "**سایر:**\n" +
+        "/start - راه‌اندازی مجدد ربات\n" +
+        "/help - نمایش این راهنما"
+    );
+});
+
 bot.command("addchannel", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
@@ -210,7 +246,6 @@ bot.command("togglechannel", async (ctx) => {
     await ctx.reply(result.message);
 });
 
-let currentChance = REACTION_CHANCE;
 bot.command("setchance", async (ctx) => {
     const args = ctx.message.text.split(" ");
     if (args.length < 2) {
@@ -228,60 +263,57 @@ bot.command("setchance", async (ctx) => {
     await ctx.reply(`🎲 شانس واکنش به ${chance}% تغییر کرد!`);
 });
 
-bot.command("start", async (ctx) => {
+bot.command("stats", async (ctx) => {
+    const channels = loadChannels();
+    const activeChannels = channels.filter(ch => ch.enabled).length;
+    
     await ctx.reply(
-        `🤖 **ربات واکنش‌زننده حرفه‌ای**\n\n` +
-        `📺 **مدیریت کانال‌ها:**\n` +
-        `• /addchannel @username - اضافه کردن کانال جدید\n` +
-        `• /removechannel @username - حذف کانال\n` +
-        `• /listchannels - مشاهده لیست کانال‌ها\n` +
-        `• /togglechannel @username - فعال/غیرفعال کردن\n\n` +
-        `⚙️ **تنظیمات:**\n` +
-        `• ایموجی‌ها: ${EMOJIS.join(", ")}\n` +
-        `• شانس واکنش: ${currentChance}%\n` +
-        `• /setchance عدد - تغییر شانس واکنش\n\n` +
-        `⚠️ **نکته مهم:** ربات باید در کانال‌ها **ادمین** باشد!`,
+        `📊 **آمار ربات:**\n\n` +
+        `• کانال‌های فعال: ${activeChannels} از ${channels.length}\n` +
+        `• ایموجی‌های فعال: ${EMOJIS.length} عدد\n` +
+        `• شانس فعلی: ${currentChance}%\n` +
+        `• وضعیت: 🟢 آنلاین\n` +
+        `• زمان اجرا: ${new Date().toLocaleString("fa-IR")}`,
         { parse_mode: "Markdown" }
     );
 });
 
-bot.command("help", async (ctx) => {
-    await ctx.reply(
-        "📚 **راهنمای کامل ربات:**\n\n" +
-        "**مدیریت کانال‌ها:**\n" +
-        "/addchannel - اضافه کردن کانال جدید\n" +
-        "/removechannel - حذف کانال از لیست\n" +
-        "/listchannels - نمایش همه کانال‌ها\n" +
-        "/togglechannel - فعال/غیرفعال کردن موقت\n\n" +
-        "**تنظیمات:**\n" +
-        "/setchance - تغییر شانس واکنش (0-100)\n" +
-        "/stats - آمار واکنش‌ها\n\n" +
-        "**سایر:**\n" +
-        "/start - راه‌اندازی مجدد ربات\n" +
-        "/help - نمایش این راهنما"
-    );
-});
-
-let reactionStats = { total: 0 };
-bot.command("stats", async (ctx) => {
-    await ctx.reply(
-        `📊 **آمار ربات:**\n\n` +
-        `• کانال‌های فعال: ${loadChannels().length}\n` +
-        `• ایموجی‌های فعال: ${EMOJIS.length} عدد\n` +
-        `• شانس فعلی: ${currentChance}%\n` +
-        `• وضعیت: 🟢 آنلاین`
-    );
-});
-
-// ========== ۶. اجرای ربات (بدون خطا) ==========
+// ========== ۶. اجرای اصلی ربات با runner ==========
 async function main() {
     try {
-        // ابتدا ربات رو راه‌اندازی کن
-        bot.start();
+        // پاک کردن webhook قبل از شروع polling
+        await bot.api.deleteWebhook({ drop_pending_updates: true });
+        console.log("✅ Webhook cleared");
+        
+        // مقداردهی اولیه برای دسترسی به botInfo
+        await bot.init();
+        console.log(`🤖 ربات: @${bot.botInfo.username}`);
+        
+        // اجرا با runner برای پردازش همزمان و پایدار
+        const runner = run(bot);
         console.log(`🚀 ربات با موفقیت اجرا شد!`);
         console.log(`📺 آماده مدیریت کانال‌ها...`);
+        console.log(`😊 ایموجی‌ها: ${EMOJIS.join(", ")}`);
+        console.log(`🎲 شانس واکنش: ${currentChance}%`);
+        
+        // مدیریت خاموش شدن graceful
+        process.once("SIGINT", async () => {
+            console.log("\n🛑 در حال توقف ربات...");
+            await runner.stop();
+            console.log("✅ ربات متوقف شد");
+            process.exit(0);
+        });
+        
+        process.once("SIGTERM", async () => {
+            console.log("\n🛑 در حال توقف ربات...");
+            await runner.stop();
+            console.log("✅ ربات متوقف شد");
+            process.exit(0);
+        });
+        
     } catch (error) {
-        console.error("خطا در اجرای ربات:", error);
+        console.error("❌ خطا در اجرای ربات:", error);
+        process.exit(1);
     }
 }
 
