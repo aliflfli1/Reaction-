@@ -2,7 +2,7 @@ const { Bot } = require("grammy");
 const fs = require("fs");
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const EMOJIS = (process.env.EMOJIS || "👍,❤️,🔥,🥰,👏").split(",");
+const EMOJIS = (process.env.EMOJIS || "❤️‍🔥,❤️,🕊️,⚡,💯").split(",");
 const REACTION_CHANCE = parseInt(process.env.REACTION_CHANCE || "70");
 
 if (!BOT_TOKEN) {
