@@ -1,12 +1,12 @@
 {
-  "name": "reaction-bot",
+  "name": "telegram-reaction-bot",
   "version": "1.0.0",
+  "description": "Telegram bot for random reactions to channel posts",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
-    "dotenv": "^17.2.1",
-    "grammy": "^1.38.3"
+    "grammy": "^1.30.0"
   }
 }
