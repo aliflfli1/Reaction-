@@ -1,15 +1,12 @@
 {
-  "name": "telegram-reaction-bot",
+  "name": "reaction-bot",
   "version": "1.0.0",
-  "main": "bot.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "grammy": "^1.27.0",
-    "dotenv": "^16.4.5"
-  },
-  "engines": {
-    "node": ">=18"
+    "dotenv": "^17.2.1",
+    "grammy": "^1.38.3"
   }
 }
