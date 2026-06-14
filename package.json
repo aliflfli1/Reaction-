@@ -1,11 +1,18 @@
 {
   "name": "telegram-reaction-bot",
   "version": "1.0.0",
+  "description": "ربات واکنش خودکار به کانال‌های تلگرام",
   "main": "bot.js",
+  "type": "module",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node bot.js",
+    "dev": "node bot.js"
   },
   "dependencies": {
-    "grammy": "^1.30.0"
+    "grammy": "^1.27.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
