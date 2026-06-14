@@ -1,7 +1,0 @@
-{
-  "build": {
-    "builder": "node",
-    "install": "npm ci",
-    "start": "node bot.js"
-  }
-}
