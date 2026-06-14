@@ -1,9 +1,9 @@
 {
   "name": "reaction-bot",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "bot.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bot.js"
   },
   "dependencies": {
     "dotenv": "^17.2.1",
